@@ -1,0 +1,20 @@
+{
+	"name": "kindle-epub-fix",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"main": "src/index.ts",
+	"scripts": {
+		"start": "node src/index.ts"
+	},
+	"devDependencies": {
+		"@tsconfig/node24": "^24.0.4",
+		"@types/jsdom": "^28.0.3",
+		"@types/node": "^25.9.3",
+		"typescript": "~6.0.2"
+	},
+	"dependencies": {
+		"@zip.js/zip.js": "^2.8.26",
+		"jsdom": "^29.1.1"
+	}
+}
