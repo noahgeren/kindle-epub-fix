@@ -1,10 +1,11 @@
-import { EpubBook } from "./epubBook.js";
+import { EpubBook } from "./epubBook.ts";
 
 export async function processEPUB(
 	inputBlob: Blob,
 	name: string,
-): Promise<Blob | null> {
+): Promise<EpubBook | null> {
 	try {
+		console.log(`Processing ${name}...`);
 		// Load EPUB
 		const epub = new EpubBook();
 		await epub.readEPUB(inputBlob);
@@ -15,18 +16,7 @@ export async function processEPUB(
 		epub.fixStrayIMG();
 		epub.fixEncoding();
 
-		// Write EPUB
-		const blob = await epub.writeEPUB();
-
-		if (epub.fixedProblems.length > 0) {
-			console.log(
-				`Fixed ${name} with the following problems: ${epub.fixedProblems.join(", ")}`,
-			);
-		} else {
-			console.log(`No issues found in ${name}.`);
-		}
-
-		return blob;
+		return epub;
 	} catch (e) {
 		console.error(e);
 		return null;

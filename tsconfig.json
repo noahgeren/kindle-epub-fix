@@ -3,6 +3,8 @@
 	"compilerOptions": {
 		"types": ["node"],
 		"checkJs": true,
-		"outDir": "./dist"
+		"outDir": "./dist",
+		"noEmit": true,
+		"allowImportingTsExtensions": true
 	}
 }

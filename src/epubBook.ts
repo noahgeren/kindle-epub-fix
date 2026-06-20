@@ -9,6 +9,7 @@ import {
 	ZipWriter,
 } from "@zip.js/zip.js";
 import { JSDOM } from "jsdom";
+import { allowed_languages } from "./allowLanguages.ts";
 
 export class EpubBook {
 	fixedProblems: string[] = [];
@@ -42,14 +43,14 @@ export class EpubBook {
 		const basename = (path: string) => {
 			return path.split("/").pop();
 		};
-		const bodyIDList = [];
+		const bodyIDList: [string, string | undefined][] = [];
 
 		// Create list of ID tag of <body>
 		for (const filename in this.files) {
 			const ext = filename.split(".").pop();
 			if (ext === "html" || ext === "xhtml") {
 				let html = this.files[filename];
-				const dom = new JSDOM(html).window;
+				const { document: dom } = new JSDOM(html).window;
 				const bodyID = dom.getElementsByTagName("body")[0].id;
 				if (bodyID.length > 0) {
 					const linkTarget = basename(filename) + "#" + bodyID;
@@ -80,107 +81,13 @@ export class EpubBook {
 
 	// Fix language field not defined or not available
 	fixBookLanguage() {
-		// From https://kdp.amazon.com/en_US/help/topic/G200673300
-		// Retrieved: 2022-Sep-13
-		const allowed_languages = [
-			// ISO 639-1
-			"af",
-			"gsw",
-			"ar",
-			"eu",
-			"nb",
-			"br",
-			"ca",
-			"zh",
-			"kw",
-			"co",
-			"da",
-			"nl",
-			"stq",
-			"en",
-			"fi",
-			"fr",
-			"fy",
-			"gl",
-			"de",
-			"gu",
-			"hi",
-			"is",
-			"ga",
-			"it",
-			"ja",
-			"lb",
-			"mr",
-			"ml",
-			"gv",
-			"frr",
-			"nb",
-			"nn",
-			"pl",
-			"pt",
-			"oc",
-			"rm",
-			"sco",
-			"gd",
-			"es",
-			"sv",
-			"ta",
-			"cy",
-
-			// ISO 639-2
-			"afr",
-			"ara",
-			"eus",
-			"baq",
-			"nob",
-			"bre",
-			"cat",
-			"zho",
-			"chi",
-			"cor",
-			"cos",
-			"dan",
-			"nld",
-			"dut",
-			"eng",
-			"fin",
-			"fra",
-			"fre",
-			"fry",
-			"glg",
-			"deu",
-			"ger",
-			"guj",
-			"hin",
-			"isl",
-			"ice",
-			"gle",
-			"ita",
-			"jpn",
-			"ltz",
-			"mar",
-			"mal",
-			"glv",
-			"nor",
-			"nno",
-			"por",
-			"oci",
-			"roh",
-			"gla",
-			"spa",
-			"swe",
-			"tam",
-			"cym",
-			"wel",
-		];
-
 		// Find OPF file
 		if (!("META-INF/container.xml" in this.files)) {
 			console.error("Cannot find META-INF/container.xml");
 			return;
 		}
 		const meta_inf_str = this.files["META-INF/container.xml"];
-		const meta_inf = new JSDOM(meta_inf_str, {
+		const { document: meta_inf } = new JSDOM(meta_inf_str, {
 			contentType: "text/xml",
 		}).window;
 		let opf_filename: string | null = "";
@@ -205,7 +112,7 @@ export class EpubBook {
 				contentType: "text/xml",
 			});
 			const language_tags =
-				opf.window.getElementsByTagName("dc:language");
+				opf.window.document.getElementsByTagName("dc:language");
 			let language = "en";
 			let original_language = "undefined";
 			if (language_tags.length === 0) {
@@ -214,10 +121,18 @@ export class EpubBook {
 				language = language_tags[0].innerHTML;
 				original_language = language;
 			}
+			if (
+				!allowed_languages.includes(
+					language.split("-").shift()!.toLowerCase(),
+				)
+			) {
+				language = "en";
+			}
 			if (language_tags.length === 0) {
-				const language_tag = opf.window.createElement("dc:language");
+				const language_tag =
+					opf.window.document.createElement("dc:language");
 				language_tag.innerHTML = language;
-				opf.window
+				opf.window.document
 					.getElementsByTagName("metadata")[0]
 					.appendChild(language_tag);
 			} else {
@@ -244,14 +159,16 @@ export class EpubBook {
 						ext === "xhtml" ? "application/xhtml+xml" : "text/html",
 				});
 				let strayImg = [];
-				for (const img of html.window.getElementsByTagName("img")) {
+				for (const img of html.window.document.getElementsByTagName(
+					"img",
+				)) {
 					if (!img.getAttribute("src")) {
 						strayImg.push(img);
 					}
 				}
 				if (strayImg.length > 0) {
 					for (const img of strayImg) {
-						img.parentElement.removeChild(img);
+						img.parentElement?.removeChild(img);
 					}
 					this.fixedProblems.push(
 						`Remove stray image tag(s) in ${filename}`,
