@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { processEPUB } from "./epubProcessor.ts";
 import { collectEpubFiles, saveEpubFile } from "./fileSystem.ts";
+import "./logger.ts";
 
 // Root directory to search for EPUB files (recursively)
 const rootDirectory = "A:\\Books";
