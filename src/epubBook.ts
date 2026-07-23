@@ -8,6 +8,7 @@ import {
 	ZipReader,
 	ZipWriter,
 } from "@zip.js/zip.js";
+import { writeFile } from "fs/promises";
 import { JSDOM } from "jsdom";
 import { allowed_languages } from "./allowLanguages.ts";
 
@@ -214,7 +215,7 @@ export class EpubBook {
 		}
 	}
 
-	async writeEPUB() {
+	async writeEPUB(path: string): Promise<void> {
 		const blobWriter = new BlobWriter("application/epub+zip");
 
 		// EPUB Zip cannot have extra attributes, so no extended timestamp
@@ -250,6 +251,27 @@ export class EpubBook {
 
 		// Finalize file
 		await writer.close();
-		return blobWriter.getData();
+		const blob = await blobWriter.getData();
+		const array = await blob.arrayBuffer();
+		await writeFile(path, Buffer.from(array));
+	}
+
+	static async processEPUB(inputBlob: Blob): Promise<EpubBook | null> {
+		try {
+			// Load EPUB
+			const epub = new EpubBook();
+			await epub.readEPUB(inputBlob);
+
+			// Run fixing procedure
+			epub.fixBodyIdLink();
+			epub.fixBookLanguage();
+			epub.fixStrayIMG();
+			epub.fixEncoding();
+
+			return epub;
+		} catch (e) {
+			console.error(e);
+			return null;
+		}
 	}
 }

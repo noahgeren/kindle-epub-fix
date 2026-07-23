@@ -1,29 +1,50 @@
-import { readFile } from "fs/promises";
-import { processEPUB } from "./epubProcessor.ts";
-import { collectEpubFiles, saveEpubFile } from "./fileSystem.ts";
+import { readdir, readFile } from "fs/promises";
+import path from "path";
+import { createInterface } from "readline/promises";
+
+import { EpubBook } from "./epubBook.ts";
 import "./logger.ts";
 
+const rl = createInterface({
+	input: process.stdin,
+	output: process.stdout,
+});
+
 // Root directory to search for EPUB files (recursively)
-const rootDirectory = "A:\\Books";
+let rootDirectory = process.argv[2] || (await rl.question("Root directory: "));
 
-const epubFiles = await collectEpubFiles(rootDirectory);
+console.log(`Searching for EPUB files in ${rootDirectory}...`);
 
-for (const file of epubFiles) {
-	const data = await readFile(file.path);
-	const inputBlob = new Blob([data]);
-	const epub = await processEPUB(inputBlob, file.name);
-	if (epub) {
-		if (epub.fixedProblems.length > 0) {
-			// Write EPUB
-			console.log(
-				`Fixed ${file.name} with the following problems: ${epub.fixedProblems.join(", ")}`,
-			);
-			const outPath = await saveEpubFile(file, epub);
-			console.log(`Wrote fixed EPUB: ${outPath}`);
+const allFiles = await readdir(rootDirectory, {
+	withFileTypes: true,
+	recursive: true,
+});
+for (const file of allFiles) {
+	const name = file.name;
+	if (file.isFile() && name.toLowerCase().endsWith(".epub")) {
+		const fullPath = path.join(file.parentPath, file.name);
+		console.log(`Processing ${name}...`);
+
+		const data = await readFile(fullPath);
+		const inputBlob = new Blob([data]);
+
+		const epub = await EpubBook.processEPUB(inputBlob);
+
+		if (!epub) {
+			console.error(`Failed to process ${name}. Skipping.`);
+		} else if (!epub.fixedProblems.length) {
+			console.log(`No issues found in ${name}. Skipping.`);
 		} else {
-			console.log(`No issues found in ${file.name}.`);
+			// Replace original file
+			await epub.writeEPUB(fullPath);
+
+			console.log(
+				`Fixed ${name} with the following problems: \n\t- ${epub.fixedProblems.join("\n\t- ")}`,
+			);
 		}
-	} else {
-		console.error(`Failed to process ${file.name}.`);
 	}
 }
+
+console.log("\nDone processing all files.");
+await rl.question("\nPress Enter to exit...");
+rl.pause();
